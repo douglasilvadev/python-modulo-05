@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from payments.pix import Pix
 from flask_socketio import SocketIO
 
-
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -13,7 +12,6 @@ app.config['SECRET_KEY'] = 'SECRET_KEY_WEBSOCKET'
 
 db.init_app(app)
 socketio = SocketIO(app)
-
 
 @app.route('/payments/pix', methods=['POST'])
 def create_payment_pix():
@@ -27,10 +25,8 @@ def create_payment_pix():
     new_payment = Payment(value=data['value'], expiration_date=expiration_date)
 
     pix_obj = Pix()
-
     data_payment_pix = pix_obj.create_payment()
-
-    new_payment.bank_payment_id = data_payment_pix["data_payment_pix"]
+    new_payment.bank_payment_id = data_payment_pix["bank_payment_id"]
     new_payment.qr_code = data_payment_pix["qr_code_path"]
 
     db.session.add(new_payment)
@@ -41,23 +37,21 @@ def create_payment_pix():
         "payment": new_payment.to_dict(),
         })
 
-
 @app.route('/payments/pix/qr_code/<file_name>', methods=['POST'])
 def get_image(file_name):
     return send_file(f"static/img/{file_name}.png", mimetype='image/png')
 
-
 @app.route('/payments/pix/confirmation', methods=['POST'])
 def pix_confirmation():
-
     data = request.get_json()
 
+    # Validation
     if "bank_payment_id" not in data and "value" not in data:
         return jsonify({"message": "Invalid payment data"}), 400
 
+    # Payment
     payment = Payment.query.filter_by(
-        bank_payment_id=data.get("bank_payment_id").first()
-        )
+        bank_payment_id=data.get("bank_payment_id")).first()        
 
     if not payment or payment.paid:
         return jsonify({"message": "Payment not found"}), 404
@@ -70,7 +64,6 @@ def pix_confirmation():
     socketio.emit(f'payment-confirmed-{payment.id}')
 
     return jsonify({"message": "The payment has been confirmed"})
-
 
 @app.route('/payments/pix/<int:payment_id>', methods=['GET'])
 def payment_pix_page(payment_id):
@@ -92,16 +85,13 @@ def payment_pix_page(payment_id):
                            qr_code=payment.qr_code,
                            )
 
-
 @socketio.on('connect')
 def handle_connect():
     print("Client connected to the server")
 
-
 @socketio.on('connect')
 def handle_disconnect():
     print("Client has disconnected to the server")
-
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

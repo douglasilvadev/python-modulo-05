@@ -1,0 +1,7 @@
+venv_socketio
+img
+instance
+database.db
+__pycache__
+pytest_cache
+instance/database.db
